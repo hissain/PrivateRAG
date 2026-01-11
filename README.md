@@ -30,7 +30,7 @@ PrivateRAG is a secure, cloud-hosted Retrieval Augmented Generation (RAG) applic
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/your-username/PrivateRAG.git
+    git clone https://github.com/hissain/PrivateRAG.git
     cd PrivateRAG
     ```
 
