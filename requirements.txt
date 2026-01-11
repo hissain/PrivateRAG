@@ -5,3 +5,4 @@ llama-index-embeddings-huggingface
 google-auth-oauthlib
 llama-index-llms-groq
 llama-index-readers-google
+llama-index-llms-openai

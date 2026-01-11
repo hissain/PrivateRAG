@@ -49,6 +49,7 @@ if not check_password():
     st.stop()  # Do not run the rest of the app if password is not correct
 
 # --- Sidebar: Config & Keys ---
+# --- Sidebar: Config & Keys ---
 with st.sidebar:
     st.header("🔑 Configuration")
     
@@ -74,6 +75,7 @@ with st.sidebar:
         "Groq: Llama 3.3 70B": "llama-3.3-70b-versatile",
         "Groq: Llama 3.1 8B (Instant)": "llama-3.1-8b-instant",
         "Groq: Mixtral 8x7b": "mixtral-8x7b-32768",
+        "Custom (OpenAI-Compatible)": "custom_openai",
     }
     
     selected_label = st.selectbox(
@@ -83,23 +85,46 @@ with st.sidebar:
     )
     selected_model = model_options[selected_label]
     
-    # Validation
-    if "Groq" in selected_label and not groq_api_key:
+    # Custom Provider Inputs
+    custom_base_url = ""
+    custom_model_name = ""
+    custom_api_key = ""
+
+    if selected_model == "custom_openai":
+        st.info("Configure any OpenAI-compatible provider (e.g., Ollama, DeepSeek, vLLM).")
+        custom_base_url = st.text_input("Base URL", value="http://localhost:11434/v1", help="e.g. http://localhost:11434/v1")
+        custom_model_name = st.text_input("Model Name", value="llama3", help="e.g. llama3, deepseek-chat")
+        custom_api_key = st.text_input("API Key", value="EMPTY", type="password", help="Required for some providers. Use 'EMPTY' for local tools like Ollama.")
+        
+        if not custom_base_url or not custom_model_name:
+            st.warning("⚠️ Base URL and Model Name are required.")
+            st.stop()
+    
+    # Validation for Standard Providers
+    elif "Groq" in selected_label and not groq_api_key:
         st.error("⚠️ Groq API Key required for this model!")
         st.stop()
-    if "Gemini" in selected_label and not google_api_key:
+    elif "Gemini" in selected_label and not google_api_key:
         st.warning("⚠️ Google API Key required for this model!")
         st.stop()
 
-    if google_api_key or groq_api_key:
-        st.success("API Keys Configured!")
+    if google_api_key or groq_api_key or (selected_model == "custom_openai" and custom_model_name):
+        st.success("Configuration Ready!")
 
 
 # --- Model Setup (Cached) ---
 @st.cache_resource
-def setup_models(model_id):
+def setup_models(model_id, _custom_config=None):
     # Dynamic Model Selection
-    if "llama" in model_id or "mixtral" in model_id or "gemma2" in model_id:
+    if model_id == "custom_openai" and _custom_config:
+        from llama_index.llms.openai import OpenAI
+        llm = OpenAI(
+            model=_custom_config["model"],
+            api_base=_custom_config["base_url"],
+            api_key=_custom_config["api_key"],
+            temperature=0.5
+        )
+    elif "llama" in model_id or "mixtral" in model_id or "gemma2" in model_id:
         llm = Groq(model=model_id, temperature=0.5)
     else:
         llm = Gemini(model=model_id, temperature=0.5)
@@ -108,7 +133,16 @@ def setup_models(model_id):
     embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return llm, embed_model
 
-llm, embed_model = setup_models(selected_model)
+# Prepare custom config dictionary
+custom_config = None
+if selected_model == "custom_openai":
+    custom_config = {
+        "base_url": custom_base_url,
+        "model": custom_model_name,
+        "api_key": custom_api_key
+    }
+
+llm, embed_model = setup_models(selected_model, _custom_config=custom_config)
 Settings.llm = llm
 Settings.embed_model = embed_model
 
