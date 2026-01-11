@@ -94,9 +94,6 @@ with st.sidebar:
     if google_api_key or groq_api_key:
         st.success("API Keys Configured!")
 
-    st.markdown("---")
-    st.header("📂 Data Source")
-    source_choice = st.radio("Choose Source:", ["📄 Upload Files", "☁️ Google Drive (Coming Soon)"])
 
 # --- Model Setup (Cached) ---
 @st.cache_resource
