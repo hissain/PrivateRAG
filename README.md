@@ -25,6 +25,19 @@ PrivateRAG is a secure, cloud-hosted Retrieval Augmented Generation (RAG) applic
 - Python 3.9+
 - Google API Key (for Gemini)
 - Groq API Key (for Llama/Mixtral)
+- **Google Cloud Service Account** (for Drive Integration)
+
+### Google Drive Setup (Important)
+
+To use the Google Drive integration, you must:
+
+1.  **Enable the API**: Go to [Google Cloud Console](https://console.developers.google.com/apis/api/drive.googleapis.com/overview) and **ENABLE** the "Google Drive API" for your project.
+2.  **Create Service Account**: 
+    - Go to "IAM & Admin" > "Service Accounts".
+    - Create a new account and download the **JSON Key**.
+3.  **Share Folders**:
+    - You **MUST** explicitly share your Google Drive folders with the Service Account Email (e.g., `driverag@...iam.gserviceaccount.com`).
+    - Give it **Viewer** permission.
 
 ### Installation
 
@@ -45,6 +58,19 @@ PrivateRAG is a secure, cloud-hosted Retrieval Augmented Generation (RAG) applic
     APP_PASSWORD = "your_secure_password"
     GOOGLE_API_KEY = "your_google_key"
     GROQ_API_KEY = "your_groq_key"
+
+    [google_drive]
+    # Paste your Service Account JSON content here (keys/values)
+    type = "service_account"
+    project_id = "your_project_id"
+    private_key_id = "your_private_key_id"
+    private_key = "-----BEGIN PRIVATE KEY-----\n..."
+    client_email = "your_service_account_email@..."
+    client_id = "..."
+    auth_uri = "https://accounts.google.com/o/oauth2/auth"
+    token_uri = "https://oauth2.googleapis.com/token"
+    auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+    client_x509_cert_url = "..."
     ```
 
 4.  Run the application:
@@ -58,7 +84,10 @@ PrivateRAG is a secure, cloud-hosted Retrieval Augmented Generation (RAG) applic
 2.  **Select Model**: Use the sidebar to choose the LLM.
     - **Groq Llama 3.3**: Recommended for speed.
     - **Gemini 3 Pro**: Recommended for reasoning.
-3.  **Upload**: Drag and drop PDF, TXT, or MD files.
+    - **Gemini 3 Pro**: Recommended for reasoning.
+3.  **Data Ingestion**:
+    - **Upload Files**: Drag and drop PDF, TXT, or MD files.
+    - **Google Drive**: Select "Google Drive", enter the **Folder ID** (from your browser URL), and click "Ingest".
 4.  **Chat**: Ask questions about the uploaded content.
 
 ## Deployment

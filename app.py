@@ -2,9 +2,11 @@ import streamlit as st
 import os
 import tempfile
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
+import json
 from llama_index.llms.gemini import Gemini
 from llama_index.llms.groq import Groq
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.readers.google import GoogleDriveReader
 
 # --- App Config ---
 st.set_page_config(page_title="PrivateRAG (Cloud)", page_icon="🔒", layout="centered")
@@ -123,31 +125,73 @@ if "messages" not in st.session_state:
 if "query_engine" not in st.session_state:
     st.session_state.query_engine = None
 
+# --- Data Source Selection ---
+st.markdown("---")
+st.header("📂 Data Source")
+source_choice = st.radio("Select Input Method:", ["📄 Upload Files", "☁️ Google Drive (Service Account)"], horizontal=True)
+
+documents = []
+
 # --- Ingestion Logic ---
 if source_choice == "📄 Upload Files":
     uploaded_files = st.file_uploader("Upload PDF, TXT or MD files", type=["pdf", "txt", "md"], accept_multiple_files=True)
     
     if uploaded_files:
         with st.spinner("Processing files..."):
-            # Create a temporary directory to store uploaded files for LlamaIndex to read
             with tempfile.TemporaryDirectory() as temp_dir:
                 for uploaded_file in uploaded_files:
                     file_path = os.path.join(temp_dir, uploaded_file.name)
                     with open(file_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                 
-                # Load data
-                documents = SimpleDirectoryReader(temp_dir).load_data()
-                
-                # Index data (Ephemeral / In-Memory)
-                index = VectorStoreIndex.from_documents(documents)
-                
-                # Create Query Engine
-                st.session_state.query_engine = index.as_query_engine()
-                st.toast(f"Indexed {len(documents)} pages!", icon="✅")
+                reader = SimpleDirectoryReader(input_dir=temp_dir)
+                documents = reader.load_data()
+                st.toast(f"✅ Loaded {len(documents)} pages from files!", icon="📄")
 
-elif source_choice == "☁️ Google Drive (Coming Soon)":
-    st.info("Google Drive integration is planned for the next phase. Please use File Upload for now.")
+elif source_choice == "☁️ Google Drive (Service Account)":
+    st.info("ℹ️ Requires a Google Cloud Service Account shared with the target folder.")
+    folder_id_input = st.text_input("Enter Google Drive Folder ID:", help="The ID is the last part of the folder URL.")
+    folder_id = folder_id_input.strip() if folder_id_input else ""
+    
+    if st.button("Ingest from Drive"):
+        if "google_drive" not in st.secrets:
+            st.error("❌ `google_drive` section missing in secrets.toml!")
+        elif not folder_id:
+            st.warning("⚠️ Please enter a Folder ID.")
+        else:
+            with st.spinner("Connecting to Google Drive..."):
+                try:
+                    # Create temp credentials file from secrets
+                    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as temp_creds:
+                        json.dump(dict(st.secrets["google_drive"]), temp_creds)
+                        temp_creds.flush()
+                        creds_path = temp_creds.name
+                    
+                    # Load data
+                    loader = GoogleDriveReader(service_account_key_path=creds_path)
+                    loaded_docs = loader.load_data(folder_id=folder_id)
+                    
+                    # Safe assignment
+                    if loaded_docs:
+                        documents = loaded_docs
+                        st.toast(f"✅ Loaded {len(documents)} docs from Drive!", icon="☁️")
+                    else:
+                        st.warning("⚠️ No documents found in this folder. Check permissions or folder ID.")
+                    
+                    # Cleanup
+                    os.unlink(creds_path)
+                    
+                except Exception as e:
+                    st.error(f"Error accessing Drive: {str(e)}")
+                    # Cleanup on error
+                    if 'creds_path' in locals() and os.path.exists(creds_path):
+                        os.unlink(creds_path)
+
+if documents:
+    with st.spinner("Indexing documents..."):
+        index = VectorStoreIndex.from_documents(documents)
+        st.session_state.query_engine = index.as_query_engine()
+        st.toast("✅ Indexing Complete!", icon="🧠")
 
 # --- Chat Logic ---
 if st.session_state.query_engine:
