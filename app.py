@@ -119,8 +119,8 @@ st.caption("Secure, Cloud-Hosted RAG powered by Gemini 1.5 Flash")
 # --- Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Welcome! Upload a document to start chatting."}]
-if "query_engine" not in st.session_state:
-    st.session_state.query_engine = None
+if "vector_index" not in st.session_state:
+    st.session_state.vector_index = None
 
 # --- Data Source Selection ---
 st.markdown("---")
@@ -184,11 +184,18 @@ elif source_choice == "☁️ Google Drive (Service Account)":
                     if 'creds_path' in locals() and os.path.exists(creds_path):
                         os.unlink(creds_path)
 
+# --- Indexing & Engine Construction ---
+# If new documents were ingested, update the index
 if documents:
     with st.spinner("Indexing documents..."):
-        index = VectorStoreIndex.from_documents(documents)
-        st.session_state.query_engine = index.as_query_engine()
+        st.session_state.vector_index = VectorStoreIndex.from_documents(documents)
         st.toast("✅ Indexing Complete!", icon="🧠")
+
+# Always rebuild the query engine from the current index and current LLM
+if st.session_state.vector_index:
+    st.session_state.query_engine = st.session_state.vector_index.as_query_engine(llm=llm)
+else:
+    st.session_state.query_engine = None
 
 # --- Chat Logic ---
 if st.session_state.query_engine:
